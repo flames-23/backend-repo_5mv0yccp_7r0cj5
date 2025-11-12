@@ -1,48 +1,79 @@
 """
-Database Schemas
+Database Schemas for Lernify Road
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a collection in MongoDB (collection name is the lowercase class name).
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, EmailStr, constr
 
-# Example schemas (replace with your own):
+# ---------------------------
+# USER AND AUTH
+# ---------------------------
+
+ALLOWED_QUALIFICATIONS = [
+    "B.Tech CSE",
+    "B.Tech IT",
+    "B.Sc IT",
+    "BCA",
+    "MCA",
+    "M.Sc CS",
+    "Diploma in CS/IT",
+]
 
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    first_name: constr(strip_whitespace=True, min_length=2) = Field(...)
+    last_name: constr(strip_whitespace=True, min_length=2) = Field(...)
+    email: EmailStr
+    phone: constr(pattern=r"^[0-9]{10}$") = Field(..., description="10-digit phone number")
+    qualification: constr(strip_whitespace=True) = Field(..., description="Must be IT-related qualification")
+    password_hash: str
+    role: str = Field("student")
+    avatar_url: Optional[str] = None
 
-class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: constr(min_length=6)
 
-# Add your own schemas here:
-# --------------------------------------------------
+class ChangePasswordRequest(BaseModel):
+    user_id: str
+    old_password: constr(min_length=6)
+    new_password: constr(min_length=6)
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+# ---------------------------
+# ROADMAP AND ASSESSMENT
+# ---------------------------
+
+class RoadmapStep(BaseModel):
+    order: int
+    title: str
+    description: str
+    videos: List[str] = []  # YouTube URLs
+    questions: List[Dict[str, Any]] = []  # [{question, options:[], answerIndex}]
+
+class AssessmentResult(BaseModel):
+    user_id: str
+    domain: str
+    step_order: int
+    score: int
+    total: int
+    passed: bool
+
+class Progress(BaseModel):
+    user_id: str
+    domain: str
+    completed_steps: List[int] = []
+    scores: Dict[str, int] = {}  # key: step_order as str -> score
+
+# ---------------------------
+# RESUME
+# ---------------------------
+
+class Resume(BaseModel):
+    user_id: str
+    summary: constr(min_length=20)
+    skills: List[constr(min_length=2)]
+    education: List[Dict[str, str]]  # [{degree, institution, year}]
+    experience: List[Dict[str, str]]  # [{role, company, duration, details}]
+    projects: List[Dict[str, str]]  # [{name, tech, link, details}]
+    contact: Dict[str, str]  # {email, phone, linkedin, github}
